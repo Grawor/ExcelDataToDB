@@ -2,13 +2,13 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "OdbcOracle"
+Attribute VB_Name = "AdodbInterface"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '//----------------------------------------------------------------------------
-'// OdbcOracleクラス
+'// AdodbInterfaceクラス
 '//----------------------------------------------------------------------------
 
 Option Explicit
@@ -16,15 +16,15 @@ Option Explicit
 '//----------------------------------------------------------------------------
 '// 【使用例】
 '//  ①インスタンス生成
-'//　②oracle_open：オラクルへの接続
-'//　③excute_sql etc：SQLの実行
+'//　②open_oracle：オラクルへの接続 or open_access：アクセスへの接続
+'//　③excute_sql or excute_sql_and_paste_recordset：SQLの実行やデータ貼り付け
 '//　④paste_recordset：実行したSQLにより取得したデータを貼り付け
-'//　⑤oracle_close：オラクルの切断
+'//　⑤close_connection：DBへの切断
 '//----------------------------------------------------------------------------
 
 '// 定義エラー発生時は参照設定で[Microsoft ActiveX Data Objects x.x Library]が選択されているか確認
-Private ora_con As ADODB.Connection
-Private ora_rs As ADODB.Recordset
+Private con As Adodb.Connection
+Private rs As Adodb.Recordset
 
 Private driver As String
 Private netservicename As String
@@ -33,29 +33,23 @@ Private username As String
 Private password As String
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：コンストラクタ
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Private Sub Class_Initialize()
     
-    Set ora_con = New ADODB.Connection
-    Set ora_rs = New ADODB.Recordset
+    Set con = New Adodb.Connection
+    Set rs = New Adodb.Recordset
     
     
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：オラクルへの接続処理
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：接続モード 1 ： ドライバー名・ネットサービス名を指
 '//　　　　　 　　　　　 2 ： データソース名を指定
 '//----------------------------------------------------------------------------
-Public Sub oracle_open(ByVal driver_ As String, netservicename_ As String, dsn_ As String, username_ As String, password_ As String, connect_mode_ As Long)
+Public Sub open_oracle(ByVal driver_ As String, netservicename_ As String, dsn_ As String, username_ As String, password_ As String, connect_mode_ As Long)
     
     Dim constr As String
 
@@ -81,17 +75,25 @@ Public Sub oracle_open(ByVal driver_ As String, netservicename_ As String, dsn_ 
     End If
     
     Debug.Print (constr)
-    ora_con.ConnectionString = constr
-    ora_con.Open
+    con.ConnectionString = constr
+    con.Open
     Debug.Print "オラクルへの接続完了"
     
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
+'// 機能    ：アクセスへの接続処理
+'// 備考    ：引数 access_name_ はフォルダ名＋ファイル名
+'//----------------------------------------------------------------------------
+Public Sub open_access(ByVal access_name_ As String)
+     
+    con.Open "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & access_name_ & ";" 'Accessファイルに接続
+    Debug.Print "アクセスへの接続完了"
+     
+End Sub
+
+'//----------------------------------------------------------------------------
 '// 機能    ：SQLの実行
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub excute_sql(ByVal str_sql_ As String)
@@ -100,7 +102,7 @@ Public Sub excute_sql(ByVal str_sql_ As String)
     
     '// UPDATE文を使用する際は、事前にCOMMITさせておかないとエラーになるため注意
     Debug.Print str_sql_ & " を実行します。"
-    ora_rs.Open str_sql_, ora_con
+    rs.Open str_sql_, con
     
     Exit Sub
 
@@ -108,15 +110,15 @@ err_:
     '// エラー発生時はロールバック処理
     con_rollbacktrans
     Debug.Print "エラーが発生したのでロールバック処理を実施しました。"
+    MsgBox "エラー番号:" & Err.Number & Chr(13) & "エラー内容:" & Err.Description
+    Debug.Print "excute_sql:プログラムを終了します。"
+    End
 
 End Sub
 
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：実行したSQLで取得したレコードセットをExcelに貼り付け
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：is_filed_ ：Trueでフィールド名も書き込み
 '//----------------------------------------------------------------------------
 Private Sub paste_recordset(ByVal sheet_name_ As String, data_start_row_ As Long, data_start_col_ As Long, is_filed_ As Boolean)
@@ -126,8 +128,8 @@ Private Sub paste_recordset(ByVal sheet_name_ As String, data_start_row_ As Long
     If is_filed_ = True Then
 
         'フィールド名の書き出し
-        For i = 0 To ora_rs.Fields.count - 1
-            ThisWorkbook.Worksheets(sheet_name_).Cells(data_start_row_, data_start_col_ + i).Value = ora_rs.Fields(i).Name
+        For i = 0 To rs.Fields.count - 1
+            ThisWorkbook.Worksheets(sheet_name_).Cells(data_start_row_, data_start_col_ + i).Value = rs.Fields(i).Name
         Next i
         
         data_start_row_ = data_start_row_ + 1
@@ -135,15 +137,12 @@ Private Sub paste_recordset(ByVal sheet_name_ As String, data_start_row_ As Long
     End If
     
     'CopyFromRecordsetメソッドで基準セルを指定してデータの書き出し
-    ThisWorkbook.Worksheets(sheet_name_).Cells(data_start_row_, data_start_col_).CopyFromRecordset ora_rs
+    ThisWorkbook.Worksheets(sheet_name_).Cells(data_start_row_, data_start_col_).CopyFromRecordset rs
 
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
-'// 機能    ：SQLを実行し取得したレコードセットをExcelに貼り付け
-'// 引数    ：
-'// 戻り値  ：
+'// 機能    ：SQLを実行し、続けて取得したレコードセットをExcelに貼り付け
 '// 備考    ：is_filed_ ：Trueでフィールド名も書き込み
 '//----------------------------------------------------------------------------
 Public Sub excute_sql_and_paste_recordset(ByVal str_sql_ As String, sheet_name_ As String, data_start_row_ As Long, data_start_col_ As Long, is_filed_ As Boolean)
@@ -155,78 +154,63 @@ End Sub
 
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：トランザクション開始処理
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub con_begintrans()
 
-    ora_con.BeginTrans
+    con.BeginTrans
     Debug.Print "トランザクション開始"
-
     
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：コミット処理（DBへの書き込み完了）
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub con_committrans()
     
-    ora_con.CommitTrans
-    Debug.Print "コミット"
+    con.CommitTrans
+    Debug.Print "コミット処理実施"
 
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：ロールバック処理
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub con_rollbacktrans()
     
-    ora_con.RollbackTrans
-    Debug.Print "ロールバック"
+    con.RollbackTrans
+    Debug.Print "ロールバック処理実施"
 
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
-'// 機能    ：オラクルへの接続終了処理
-'// 引数    ：
-'// 戻り値  ：
+'// 機能    ：DBへの接続終了処理
 '// 備考    ：
 '//----------------------------------------------------------------------------
-Public Sub oracle_close()
+Public Sub close_connection()
 
     On Error Resume Next
 
-    ora_con.Close
-    ora_rs.Close
+    con.Close
+    rs.Close
     
-    Set ora_con = Nothing
-    Set ora_rs = Nothing
+    Set con = Nothing
+    Set rs = Nothing
     
     On Error GoTo 0 '// エラー処理の命令取り消し
-    Debug.Print "オラクルの切断完了"
-
+    Debug.Print "DBへの切断完了"
 
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：INSERT もしくは UPDATE のSQLを作成
-'// 引数    ：テーブル名、シート名、SQLタイプ指定行、データベースカラム名指定行
+'// 備考    ：引数は下記
+'//           テーブル名、シート名、SQLタイプ指定行、データベースカラム名指定行
 '//           データ格納開始行、データ格納開始列、データ格納終了列
-'// 戻り値  ：
-'// 備考    ：SQLタイプ：INWERT or UPDATE or WHERE
+'// 　　      （SQLタイプ：INWERT or UPDATE or WHERE）
 '//----------------------------------------------------------------------------
 Public Function make_sql(table_name As String, sheet_name As String, sql_type_defined_row As Long, db_col_name_defined_row As Long _
     , data_start_row As Long, data_start_col As Long, data_end_col As Long) As String
@@ -344,10 +328,7 @@ Public Function make_sql(table_name As String, sheet_name As String, sql_type_de
 End Function
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：INSERT もしくは UPDATE のSQLを作成して実行
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub make_and_excute_sql(table_name As String, sheet_name As String, sql_type_defined_row As Long, db_col_name_defined_row As Long _
@@ -370,10 +351,7 @@ Public Sub make_and_excute_sql(table_name As String, sheet_name As String, sql_t
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：連続してINSERT もしくは UPDATE のSQLを作成して実行
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub make_and_excute_sqls(table_name As String, sheet_name As String, sql_type_defined_row As Long, db_col_name_defined_row As Long _
@@ -408,5 +386,7 @@ Public Sub make_and_excute_sqls(table_name As String, sheet_name As String, sql_
     con_committrans
     
 End Sub
+
+
 
 

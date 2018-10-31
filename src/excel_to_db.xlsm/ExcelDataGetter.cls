@@ -34,10 +34,7 @@ Private data_last_row As Long       '// 別Excelのデータが格納されている最後の行
 Private data() As Variant           '// 別Excelのデータを格納する配列
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：コンストラクタ
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Private Sub Class_Initialize()
@@ -55,10 +52,7 @@ Private Sub Class_Initialize()
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：データを読み込む対象Excelのフォルダ、ファイル名、シート名を設定
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub set_info(ByVal folder_name_ As String, file_name_ As String, sheet_name_ As String)
@@ -103,10 +97,7 @@ Public Sub set_info(ByVal folder_name_ As String, file_name_ As String, sheet_na
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：データが入っている開始行・終了行を特定
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：カラム名が存在するならば、データ検索開始行から下側に検索を進めて最終行を特定する。
 '// 　　　　　※下側への検索時、空白数が連続して設定数未満であれば検索を進める。
 '//----------------------------------------------------------------------------
@@ -147,10 +138,7 @@ Public Sub define_data_rows(ByVal field_name_ As String, field_row_ As Long, fie
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：指定したExceデータを配列に格納して返す関数
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：①set_data_array ②paste_data_to_excel をセットで使う場合が多い。
 '//----------------------------------------------------------------------------
 Public Function set_data_array(ByVal field_name_ As String, field_row_ As Long, field_col_ As Long) As Variant()
@@ -181,10 +169,7 @@ Public Function set_data_array(ByVal field_name_ As String, field_row_ As Long, 
 End Function
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：指定したExcelファイルの特定セルに格納していたデータをセット
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：①set_data_array ②paste_data_to_excel をセットで使う場合が多い。
 '//----------------------------------------------------------------------------
 Public Sub paste_data_to_excel(ByVal workbook_ As Workbook, sheet_name_ As String, row_ As Long, col_ As Long)
@@ -202,10 +187,7 @@ Public Sub paste_data_to_excel(ByVal workbook_ As Workbook, sheet_name_ As Strin
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：別Excelのカラム名が存在するか判定する関数
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：Excelの行列が変わっていないかどうかのチェック用
 '//----------------------------------------------------------------------------
 Private Function is_existed_field_name(ByVal field_name_ As String, row_ As Long, col_ As Long) As Boolean
@@ -220,10 +202,7 @@ Private Function is_existed_field_name(ByVal field_name_ As String, row_ As Long
 End Function
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：別Excelの指定した行列に対して、セル値を返す関数
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Private Function get_cell_value(ByVal row_ As Long, ByVal col_ As Long) As String
@@ -233,10 +212,7 @@ Private Function get_cell_value(ByVal row_ As Long, ByVal col_ As Long) As Strin
 End Function
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：データの値を配列に追加
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub add_data(ByVal val)
@@ -256,10 +232,7 @@ Public Sub add_data(ByVal val)
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：指定要素位置の値を取得する
-'// 引数    ：
-'// 戻り値  ：指定要素位置の値
 '// 備考    ：JavaのArrayList.Getと一緒
 '//----------------------------------------------------------------------------
 Public Function get_data_val(index)
@@ -275,10 +248,7 @@ Public Function get_data_val(index)
 End Function
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：データ配列の要素数を調べる。
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Function count_data() As Long
@@ -286,10 +256,7 @@ Public Function count_data() As Long
 End Function
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：データ配列をクリアする。
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub clear_data()

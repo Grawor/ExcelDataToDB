@@ -7,11 +7,12 @@ Const CONFIG_SHEET = "Config"
 Const MAIN_SQL_TYPE_DEFINED_ROW = 1         '// SQLタイプを定義しているMainシートの行
 Const MAIN_DB_COL_NAME_DEFINED_ROW = 2      '// DBの列名を定義しているMainシートの行
 
-Const MAIN_DATA_FIELD_NAME_DEFINED_ROW = 3  '// 抽出するExcelデータのフィールド名に含まれる文字列を定義しているMainシートの行
-Const MAIN_DATA_FIELD_ROW_DEFINED_ROW = 4   '// 抽出するExcelデータのフィールド名が含まれる行を定義しているMainシートの行
-Const MAIN_DATA_FIELD_COL_DEFINED_ROW = 5        '// 抽出するExcelデータの列を定義しているMainシートの行
+Const MAIN_DATA_FIELD_NAME_DEFINED_ROW = 3          '// 抽出するExcelデータのフィールド名に含まれる文字列を定義しているMainシートの行
+Const MAIN_DATA_FIELD_ROW_DEFINED_ROW = 4           '// 抽出するExcelデータのフィールド名が含まれる行を定義しているMainシートの行
+Const MAIN_DATA_FIELD_COL_DEFINED_ROW = 5           '// 抽出するExcelデータの列を定義しているMainシートの行
+Const MAIN_DATA_FORMAT_DEFINED_ROW = 6              '// 抽出するExcelデータの書式を定義しているMainシートの行
 
-Const MAIN_DATA_START_ROW = 6       '// Mainシートのデータ格納開始行
+Const MAIN_DATA_START_ROW = 7       '// Mainシートのデータ格納開始行
 Const MAIN_DATA_START_COL = 10      '// Mainシートのデータ格納開始列
 
 Dim excel_data_start_row As Long    '// Excel台帳のデータ開始行
@@ -38,19 +39,21 @@ Dim DB_TABLE As String
 Dim common As ExcelCommon                       '// Excelで良く使う関数が含まれるクラスをインスタンス化
 Dim excel_data_getter As ExcelDataGetter
 Dim sql_list As ArrayList
-Dim odbc As OdbcOracle
+Dim ado As AdodbInterface
 
 Dim sql_mode As Long    '//1:エラー終了　2:INSERT　3:UPDATE
 
-
-'// メイン実行プログラム
+'//----------------------------------------------------------------------------
+'// 機能    ：メイン実行プログラム
+'// 備考    ：
+'//----------------------------------------------------------------------------
 Public Sub main()
     
     '// オブジェクトをインスタンス化
     Set common = New ExcelCommon
     Set excel_data_getter = New ExcelDataGetter
     Set sql_list = New ArrayList
-    Set odbc = New OdbcOracle
+    Set ado = New AdodbInterface
     
     '// ExcelCommonにこのワークブックをセット
     common.set_workbook ThisWorkbook
@@ -92,10 +95,17 @@ Public Sub main()
     '//Call excute_sql(sql_list)
     Call make_and_excute_sqls
     
+    '// DBへの切断処理
+    ado.close_connection
+    
     MsgBox "Excel台帳データをDBへ反映させました。"
 
 End Sub
 
+'//----------------------------------------------------------------------------
+'// 機能    ：Excelから基本情報をセット
+'// 備考    ：
+'//----------------------------------------------------------------------------
 Private Sub set_info()
 
     EXCEL_FOLDER = ThisWorkbook.Worksheets(CONFIG_SHEET).Cells(2, 4).Value
@@ -118,6 +128,10 @@ Private Sub set_info()
         
 End Sub
 
+'//----------------------------------------------------------------------------
+'// 機能    ：ExcelのSQLタイプ設定が正しいかチェックする。
+'// 備考    ：
+'//----------------------------------------------------------------------------
 Private Function check_sqltype() As Long
 
     Dim count_insert As Long, count_update As Long, count_where As Long
@@ -170,8 +184,10 @@ Private Function check_sqltype() As Long
 
 End Function
 
-
-'// ※フォルダ名、ファイル名、シート名を引数としておくことで、複数ファイルからの同時取り込みへと拡張可能
+'//----------------------------------------------------------------------------
+'// 機能    ：Excel台帳からデータをセットする。
+'// 備考    ：フォルダ名、ファイル名、シート名を引数としておくことで、複数ファイルからの同時取り込みへと拡張可能
+'//----------------------------------------------------------------------------
 Private Function paste_excel_data(sheet_name_ As String)
      
     Dim i As Long
@@ -180,25 +196,36 @@ Private Function paste_excel_data(sheet_name_ As String)
     Dim field_name As String
     Dim field_row As Long
     Dim field_col As Long
+    Dim format As String
 
     i = 0
     sqltype = ThisWorkbook.Worksheets(sheet_name_).Cells(1, MAIN_DATA_START_COL).Value
     Do While sqltype <> ""
     
+        '// Excel台帳からデータを取得するための条件取得
         field_name = ThisWorkbook.Worksheets(sheet_name_).Cells(MAIN_DATA_FIELD_NAME_DEFINED_ROW, MAIN_DATA_START_COL + i)
         field_row = ThisWorkbook.Worksheets(sheet_name_).Cells(MAIN_DATA_FIELD_ROW_DEFINED_ROW, MAIN_DATA_START_COL + i)
         field_col = ThisWorkbook.Worksheets(sheet_name_).Cells(MAIN_DATA_FIELD_COL_DEFINED_ROW, MAIN_DATA_START_COL + i)
-    
+        
+        '// Excel台帳のデータを貼り付け
         excel_data_getter.set_data_array field_name, field_row, field_col
         excel_data_getter.paste_data_to_excel ThisWorkbook, sheet_name_, MAIN_DATA_START_ROW, MAIN_DATA_START_COL + i
+        
+        '// Excel台帳から取得したデータの書式を変更
+        format = ThisWorkbook.Worksheets(sheet_name_).Cells(MAIN_DATA_FORMAT_DEFINED_ROW, MAIN_DATA_START_COL + i)
+        common.change_format_max_row_below sheet_name_, MAIN_DATA_START_ROW, MAIN_DATA_START_COL + i, format
     
+        '// 次の処理へ移る準備
         i = i + 1
         sqltype = ThisWorkbook.Worksheets(sheet_name_).Cells(1, MAIN_DATA_START_COL + i).Value
     Loop
 
 End Function
 
-
+'//----------------------------------------------------------------------------
+'// 機能    ：格納されたデータからSQL文を作成しリストに追加する。
+'// 備考    ：
+'//----------------------------------------------------------------------------
 Private Sub make_sql_list(ByVal list As ArrayList, sheet_name As String)
 
     Dim i As Long, j As Long
@@ -217,7 +244,7 @@ Private Sub make_sql_list(ByVal list As ArrayList, sheet_name As String)
              
     For i = start_row To end_row
     
-        sql = odbc.make_sql(DB_TABLE, sheet_name, MAIN_SQL_TYPE_DEFINED_ROW, MAIN_DB_COL_NAME_DEFINED_ROW, i, start_col, end_col)
+        sql = ado.make_sql(DB_TABLE, sheet_name, MAIN_SQL_TYPE_DEFINED_ROW, MAIN_DB_COL_NAME_DEFINED_ROW, i, start_col, end_col)
         list.add (sql)
         
     Next
@@ -225,34 +252,42 @@ Private Sub make_sql_list(ByVal list As ArrayList, sheet_name As String)
     Debug.Print ("リスト内保有数： " & list.count() + 1)
     
     For i = 0 To list.count()
-        Debug.Print i & ":" & list.GetVal(i)
+        '// Debug.Print i & ":" & list.GetVal(i)
     Next
     
 End Sub
 
+'//----------------------------------------------------------------------------
+'// 機能    ：リスト内のSQL文を実行する。
+'// 備考    ：
+'//----------------------------------------------------------------------------
 Private Sub excute_sql(ByVal sql_list As ArrayList)
 
     Dim i As Long
         
     '// Debug.Print (DB_DRIVER & ", "&DB_NETSERVICENAME & ", " & DB_DSN & ", " & DB_USER & ", " & DB_PASSWORD)
-    odbc.oracle_open DB_DRIVER, DB_NETSERVICENAME, DB_DSN, DB_USER, DB_PASSWORD, DB_CONNECT_MODE    '// ()で引数渡しをするとエラー発生
+    ado.open_oracle DB_DRIVER, DB_NETSERVICENAME, DB_DSN, DB_USER, DB_PASSWORD, DB_CONNECT_MODE    '// ()で引数渡しをするとエラー発生
 
-    odbc.con_begintrans
+    ado.con_begintrans
     For i = 0 To sql_list.count
         '// Debug.Print sql_list.GetVal(i)
-        odbc.excute_sql sql_list.GetVal(i)
+        ado.excute_sql sql_list.GetVal(i)
     Next
-    odbc.con_committrans
+    ado.con_committrans
 
 End Sub
 
+'//----------------------------------------------------------------------------
+'// 機能    ：格納されたデータからSQL文を作成し実行する。
+'// 備考    ：
+'//----------------------------------------------------------------------------
 Private Sub make_and_excute_sqls()
 
     Dim end_col As Long
     end_col = common.get_max_col_right(MAIN_SHEET, MAIN_DATA_START_ROW, MAIN_DATA_START_COL)
 
-    odbc.oracle_open DB_DRIVER, DB_NETSERVICENAME, DB_DSN, DB_USER, DB_PASSWORD, DB_CONNECT_MODE    '// ()で引数渡しをするとエラー発生
-    odbc.make_and_excute_sqls DB_TABLE, MAIN_SHEET, MAIN_SQL_TYPE_DEFINED_ROW, MAIN_DB_COL_NAME_DEFINED_ROW, MAIN_DATA_START_ROW, MAIN_DATA_START_COL, end_col
+    ado.open_oracle DB_DRIVER, DB_NETSERVICENAME, DB_DSN, DB_USER, DB_PASSWORD, DB_CONNECT_MODE    '// ()で引数渡しをするとエラー発生
+    ado.make_and_excute_sqls DB_TABLE, MAIN_SHEET, MAIN_SQL_TYPE_DEFINED_ROW, MAIN_DB_COL_NAME_DEFINED_ROW, MAIN_DATA_START_ROW, MAIN_DATA_START_COL, end_col
 
 End Sub
 
@@ -262,30 +297,24 @@ End Sub
 '//----------------------------------------------------------------------------
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：オラクルDBへの接続テスト
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
-Public Sub debug_connect_odbc_oracle()
+Public Sub debug_connect_oracle()
 
     '// Excel台帳やDBの設定情報取得
     Call set_info
     
-    Set odbc = New OdbcOracle
-    odbc.oracle_open DB_DRIVER, DB_NETSERVICENAME, DB_DSN, DB_USER, DB_PASSWORD, DB_CONNECT_MODE   '// ()で引数渡しをするとエラー発生
-    odbc.oracle_close
+    Set ado = New AdodbInterface
+    ado.open_oracle DB_DRIVER, DB_NETSERVICENAME, DB_DSN, DB_USER, DB_PASSWORD, DB_CONNECT_MODE   '// ()で引数渡しをするとエラー発生
+    ado.close_connection
     
     MsgBox "オラクルへの接続テスト完了！"
 
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：Excel台帳からデータをセットするまでのテスト
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub debug_paste_excel_data()
@@ -294,7 +323,7 @@ Public Sub debug_paste_excel_data()
     Set common = New ExcelCommon
     Set excel_data_getter = New ExcelDataGetter
     Set sql_list = New ArrayList
-    Set odbc = New OdbcOracle
+    Set ado = New AdodbInterface
     
     '// ExcelCommonにこのワークブックをセット
     common.set_workbook ThisWorkbook
@@ -334,10 +363,7 @@ Public Sub debug_paste_excel_data()
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：SQLを作成して実行するテスト
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub debug_excute_sql()
@@ -355,7 +381,7 @@ Public Sub debug_excute_sql()
     Set common = New ExcelCommon
     Set excel_data_getter = New ExcelDataGetter
     Set sql_list = New ArrayList
-    Set odbc = New OdbcOracle
+    Set ado = New AdodbInterface
     
     '// ExcelCommonにこのワークブックをセット
     common.set_workbook ThisWorkbook
@@ -377,10 +403,7 @@ Public Sub debug_excute_sql()
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：格納しているデータをクリア
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub debug_data_clear()
@@ -405,14 +428,24 @@ Public Sub debug_data_clear()
 End Sub
 
 '//----------------------------------------------------------------------------
-'// 関数名  ：
 '// 機能    ：テスト用の一時的な関数
-'// 引数    ：
-'// 戻り値  ：
 '// 備考    ：
 '//----------------------------------------------------------------------------
 Public Sub temp()
 
+    '// オブジェクトをインスタンス化
+    Set common = New ExcelCommon
+    Set excel_data_getter = New ExcelDataGetter
+    Set sql_list = New ArrayList
+    Set ado = New AdodbInterface
+    
+    '// ExcelCommonにこのワークブックをセット
+    common.set_workbook ThisWorkbook
+    
+    '// Excel台帳やDBの設定情報取得
+    Call set_info
+
+    Debug.Print common.exist_val(9, "Sheet1", 1, 1)
 
 End Sub
 
